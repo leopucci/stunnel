@@ -44,6 +44,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
+CONFIG_HEADER = $(top_builddir)/src/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 SOURCES =
@@ -135,6 +136,7 @@ RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SSLDIR = @SSLDIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -184,7 +186,9 @@ psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
-ssldir = @ssldir@
+stunnel_CFLAGS = @stunnel_CFLAGS@
+stunnel_LDFLAGF = @stunnel_LDFLAGF@
+stunnel_LDFLAGS = @stunnel_LDFLAGS@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
@@ -462,21 +466,11 @@ uninstall-man: uninstall-man8
 
 
 .pod.8:
-	pod2man --section=8 --release=$(VERSION) --center=stunnel \
-		--date=`date +%Y.%m.%d` -u $< $@
+	pod2man -u --section=8 --release=$(VERSION) --center=stunnel \
+		--date=`date +%Y.%m.%d` $< $@
 
-stunnel.html: stunnel.pod
-	pod2html --infile=$< --outfile $@ --title stunnel.8
-	rm -f pod2htmd.tmp pod2htmi.tmp
-
-stunnel.fr.html: stunnel.fr.pod
-	pod2html --infile=$< --title stunnel.8 | \
-		sed 's/<head>/<head>\n<meta http-equiv=content-type content="text\/html; charset=ISO-8859-1">/' > $@
-	rm -f pod2htmd.tmp pod2htmi.tmp
-
-stunnel.pl.html: stunnel.pl.pod
-	pod2html --infile=$< --title stunnel.8 | \
-		sed 's/<head>/<head>\n<meta http-equiv=content-type content="text\/html; charset=ISO-8859-2">/' > $@
+.pod.html:
+	pod2html --noindex --title stunnel.8 --infile=$< --outfile=$@
 	rm -f pod2htmd.tmp pod2htmi.tmp
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

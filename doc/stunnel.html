@@ -13,6 +13,7 @@
 <!-- INDEX BEGIN -->
 <div name="index">
 <p><a name="__index__"></a></p>
+<!--
 
 <ul>
 
@@ -37,6 +38,7 @@
 		<li><a href="#inetd_mode">INETD MODE</a></li>
 		<li><a href="#certificates">CERTIFICATES</a></li>
 		<li><a href="#randomness">RANDOMNESS</a></li>
+		<li><a href="#dh_parameters">DH PARAMETERS</a></li>
 	</ul>
 
 	<li><a href="#files">FILES</a></li>
@@ -45,7 +47,9 @@
 	<li><a href="#author">AUTHOR</a></li>
 </ul>
 
-<hr name="index" />
+-->
+
+
 </div>
 <!-- INDEX END -->
 
@@ -66,7 +70,7 @@
 <dt><strong><a name="win32" class="item"><strong>WIN32:</strong></a></strong></dt>
 
 <dd>
-<p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop]
+<p><strong>stunnel</strong> [ [-install | -uninstall | -start | -stop] | -exit]
     [-quiet] [&lt;filename&gt;] ] | -help | -version | -sockets</p>
 </dd>
 </dl>
@@ -135,10 +139,15 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <dd>
 <p>Stop NT Service</p>
 </dd>
+<dt><strong><a name="exit" class="item"><strong>-exit</strong> (Win32 only)</a></strong></dt>
+
+<dd>
+<p>Exit an already started stunnel</p>
+</dd>
 <dt><strong><a name="quiet" class="item"><strong>-quiet</strong> (NT/2000/XP only)</a></strong></dt>
 
 <dd>
-<p>Don't display a message box when successfully installed or uninstalled NT service</p>
+<p>Don't display any message boxes</p>
 </dd>
 </dl>
 <p>
@@ -147,17 +156,29 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <h1><a name="configuration_file">CONFIGURATION FILE</a></h1>
 <p>Each line of the configuration file can be either:</p>
 <ul>
-<li><strong><a name="line" class="item">an empty line (ignored)</a></strong>
-
+<li>
+<p>An empty line (ignored).</p>
 </li>
-<li><strong><a name="a_comment_starting_with_ignored" class="item">a comment starting with ';' (ignored)</a></strong>
-
+<li>
+<p>A comment starting with ';' (ignored).</p>
 </li>
-<li><strong><a name="an_option_name_option_value_pair" class="item">an 'option_name = option_value' pair</a></strong>
-
+<li>
+<p>An 'option_name = option_value' pair.</p>
 </li>
-<li><strong><a name="service_name_indicating_a_start_of_a_service_definition" class="item">'[service_name]' indicating a start of a service definition</a></strong>
-
+<li>
+<p>'[service_name]' indicating a start of a service definition.</p>
+</li>
+</ul>
+<p>An address parameter of an option may be either:</p>
+<ul>
+<li>
+<p>A port number.</p>
+</li>
+<li>
+<p>A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number.</p>
+</li>
+<li>
+<p>A Unix socket path (Unix only).</p>
 </li>
 </ul>
 <p>
@@ -171,12 +192,25 @@ Eric Young (<a href="mailto:eay@cryptsoft.com">eay@cryptsoft.com</a>)</p>
 <p><strong>chroot</strong> keeps <strong>stunnel</strong> in chrooted jail.  <em>CApath</em>, <em>CRLpath</em>, <em>pid</em>
 and <em>exec</em> are located inside the jail and the patches have to be relative
 to the directory specified with <strong>chroot</strong>.</p>
+<p>Several functions of the operating system also need their files to be located within chroot jail, e.g.:</p>
+<ul>
+<li>
+<p>Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.</p>
+</li>
+<li>
+<p>Local time in log files needs /etc/timezone.</p>
+</li>
+<li>
+<p>Some other functions may need devices, e.g. /dev/zero or /dev/null.</p>
+</li>
+</ul>
 </dd>
-<dt><strong><a name="compression_zlib_rle" class="item"><strong>compression</strong> = zlib | rle</a></strong></dt>
+<dt><strong><a name="compression_deflate_zlib_rle" class="item"><strong>compression</strong> = deflate | zlib | rle</a></strong></dt>
 
 <dd>
 <p>select data compression algorithm</p>
 <p>default: no compression</p>
+<p>deflate is the standard compression method as described in <a href="http://www.ietf.org/rfc/rfc1951.txt" class="rfc">RFC 1951</a>.</p>
 <p>zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
 OpenSSL 0.9.7.</p>
 <p>rle compression is currently not implemented by the OpenSSL library.</p>
@@ -247,8 +281,8 @@ instead of via syslog (unless <em>output</em> is specified).</p>
 <dt><strong><a name="output_file" class="item"><strong>output</strong> = file</a></strong></dt>
 
 <dd>
-<p>append log messages to a file instead of using syslog</p>
-<p>/dev/stdout device can be used to redirect log messages to the standard
+<p>append log messages to a file</p>
+<p>/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).</p>
 </dd>
 <dt><strong><a name="file" class="item"><strong>pid</strong> = file (Unix only)</a></strong></dt>
@@ -280,23 +314,21 @@ number generator.</p>
 <p>overwrite the random seed files with new random data</p>
 <p>default: yes</p>
 </dd>
-<dt><strong><a name="service_servicename" class="item"><strong>service</strong> = servicename</a></strong></dt>
+<dt><strong><a name="servicename" class="item"><strong>service</strong> = servicename (Unix only)</a></strong></dt>
 
 <dd>
-<p>use specified string as the service name</p>
-<p><strong>On Unix:</strong> <em>inetd</em> mode service name for TCP Wrapper library.</p>
-<p><strong>On NT/2000/XP:</strong> NT service name in the Control Panel.</p>
+<p>use specified string as <em>inetd</em> mode service name for TCP Wrapper library</p>
 <p>default: stunnel</p>
 </dd>
 <dt><strong><a name="groupname" class="item"><strong>setgid</strong> = groupname (Unix only)</a></strong></dt>
 
 <dd>
-<p><a href="#setgid"><code>setgid()</code></a> to groupname in daemon mode and clears all other groups</p>
+<p><code>setgid()</code> to groupname in daemon mode and clears all other groups</p>
 </dd>
 <dt><strong><a name="username" class="item"><strong>setuid</strong> = username (Unix only)</a></strong></dt>
 
 <dd>
-<p><a href="#setuid"><code>setuid()</code></a> to username in daemon mode</p>
+<p><code>setuid()</code> to username in daemon mode</p>
 </dd>
 <dt><strong><a name="socket_a_l_r_option_value_value" class="item"><strong>socket</strong> = a|l|r:option=value[:value]</a></strong></dt>
 
@@ -340,11 +372,14 @@ is provided a network socket by a server such as <em>inetd</em>, <em>xinetd</em>
 or <em>tcpserver</em>) then you should read the section entitled <em>INETD MODE</em>
 below.</p>
 <dl>
-<dt><strong><a name="accept_host_port" class="item"><strong>accept</strong> = [host:]port</a></strong></dt>
+<dt><strong><a name="accept_address" class="item"><strong>accept</strong> = address</a></strong></dt>
 
 <dd>
-<p>accept connections on specified host:port</p>
-<p>If no host specified, defaults to all IP addresses for the local host.</p>
+<p>accept connections on specified address</p>
+<p>If no host specified, defaults to all IPv4 addresses for the local host.</p>
+<p>To listen on all IPv6 addresses use:</p>
+<pre>
+    connect = :::port</pre>
 </dd>
 <dt><strong><a name="capath_directory" class="item"><strong>CApath</strong> = directory</a></strong></dt>
 
@@ -387,10 +422,10 @@ For example DES-CBC3-SHA:IDEA-CBC-MD5</p>
 <p>client mode (remote service uses SSL)</p>
 <p>default: no (server mode)</p>
 </dd>
-<dt><strong><a name="connect_host_port" class="item"><strong>connect</strong> = [host:]port</a></strong></dt>
+<dt><strong><a name="connect_address" class="item"><strong>connect</strong> = address</a></strong></dt>
 
 <dd>
-<p>connect to a remote host:port</p>
+<p>connect to a remote address</p>
 <p>If no host is specified, the host defaults to localhost.</p>
 <p>Multiple <strong>connect</strong> options are allowed in a single service section.</p>
 <p>If host resolves to multiple addresses and/or if multiple <em>connect</em>
@@ -418,7 +453,10 @@ c_rehash the directory on upgrade from OpenSSL 0.x.x to OpenSSL 1.x.x.</p>
 
 <dd>
 <p>specify ECDH curve name</p>
-<p>default: sect163r2</p>
+<p>To get a list of supported cuves use:</p>
+<pre>
+    openssl ecparam -list_curves</pre>
+<p>default: prime256v1</p>
 </dd>
 <dt><strong><a name="delay_yes_no" class="item"><strong>delay</strong> = yes | no</a></strong></dt>
 
@@ -483,7 +521,7 @@ to its owner.  On Unix systems you can use the following command:</p>
 <p>IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.</p>
 </dd>
-<dt><strong><a name="sni_service_name_server_name" class="item"><strong>sni</strong> = service_name:server_name</a></strong></dt>
+<dt><strong><a name="server_name" class="item"><strong>sni</strong> = service_name:server_name (server mode)</a></strong></dt>
 
 <dd>
 <p>Use the service as a slave service (a name-based virtual server) for Server
@@ -497,6 +535,14 @@ Multiple slave services are normally specified for a single master service.
 specified, as <em>protocol</em> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.</p>
+<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
+</dd>
+<dt><strong><strong>sni</strong> = server_name (client mode)</strong></dt>
+
+<dd>
+<p>Use the parameter as the value of TLS Server Name Indication (<a href="http://www.ietf.org/rfc/rfc3546.txt" class="rfc">RFC 3546</a>)
+extension.</p>
+<p>Option <em>sni</em> is only available when compiled with OpenSSL 1.0.0 and later.</p>
 </dd>
 <dt><strong><a name="ocsp_url" class="item"><strong>OCSP</strong> = url</a></strong></dt>
 
@@ -553,20 +599,25 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc4642.txt" class="rfc">RFC 4642</a> - <em>Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)</em></p>
 <p>This protocol is only supported in client mode.</p>
 </dd>
+<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
+
+<dd>
+<p>Based on <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
+</dd>
 <dt><strong><a name="pop3" class="item"><em>pop3</em></a></strong></dt>
 
 <dd>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc2449.txt" class="rfc">RFC 2449</a> - <em>POP3 Extension Mechanism</em></p>
 </dd>
+<dt><strong><a name="proxy" class="item"><em>proxy</em></a></strong></dt>
+
+<dd>
+<p>Haproxy client IP address <a href="http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt">http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt</a></p>
+</dd>
 <dt><strong><a name="smtp" class="item"><em>smtp</em></a></strong></dt>
 
 <dd>
 <p>Based on <a href="http://www.ietf.org/rfc/rfc2487.txt" class="rfc">RFC 2487</a> - <em>SMTP Service Extension for Secure SMTP over TLS</em></p>
-</dd>
-<dt><strong><a name="pgsql" class="item"><em>pgsql</em></a></strong></dt>
-
-<dd>
-<p>Based on <a href="http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982">http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982</a></p>
 </dd>
 </dl>
 </dd>
@@ -598,16 +649,46 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 <dd>
 <p>allocate pseudo terminal for 'exec' option</p>
 </dd>
-<dt><strong><strong>retry</strong> = yes | no (Unix only)</strong></dt>
+<dt><strong><a name="renegotiation_yes_no" class="item"><strong>renegotiation</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>support SSL renegotiation</p>
+<p>Applications of the SSL renegotiation include some authentication scenarios,
+or re-keying long lasting connections.</p>
+<p>On the other hand this feature can facilitate a trivial CPU-exhaustion
+DoS attack:</p>
+<p><a href="http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html">http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html</a></p>
+<p>Please note that disabling SSL renegotiation does not fully mitigate
+this issue.</p>
+<p>default: yes (if supported by OpenSSL)</p>
+</dd>
+<dt><strong><a name="reset_yes_no" class="item"><strong>reset</strong> = yes | no</a></strong></dt>
+
+<dd>
+<p>attempt to use TCP RST flag to indicate an error</p>
+<p>This option is not supported on some platforms.</p>
+<p>default: yes</p>
+</dd>
+<dt><strong><a name="retry_yes_no" class="item"><strong>retry</strong> = yes | no</a></strong></dt>
 
 <dd>
 <p>reconnect a connect+exec section after it's disconnected</p>
 <p>default: no</p>
 </dd>
-<dt><strong><a name="session_timeout" class="item"><strong>session</strong> = timeout</a></strong></dt>
+<dt><strong><a name="sessioncachesize_size" class="item"><strong>sessionCacheSize</strong> = size</a></strong></dt>
+
+<dd>
+<p>session cache size</p>
+<p>The parameter specifies the maximum number of the internal session cache
+entries.</p>
+<p>The value of 0 can be used for unlimited size.  It is not recommended
+for production use due to the risk of memory exhaustion DoS attack.</p>
+</dd>
+<dt><strong><a name="sessioncachetimeout_timeout" class="item"><strong>sessionCacheTimeout</strong> = timeout</a></strong></dt>
 
 <dd>
 <p>session cache timeout</p>
+<p>This is the number of seconds to keep cached SSL sessions.</p>
 </dd>
 <dt><strong><a name="sessiond_host_port" class="item"><strong>sessiond</strong> = host:port</a></strong></dt>
 
@@ -618,7 +699,7 @@ Support for this extension was dropped in Samba 3.0.0.</p>
 
 <dd>
 <p>select version of SSL protocol</p>
-<p>Allowed options: all, SSLv2, SSLv3, TLSv1</p>
+<p>Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2</p>
 </dd>
 <dt><strong><a name="bytes" class="item"><strong>stack</strong> = bytes (except for FORK model)</a></strong></dt>
 
@@ -745,14 +826,36 @@ other platforms.</p>
 <dd>
 <p>verify peer certificate</p>
 <dl>
-<dt><strong><a name="level_1_verify_peer_certificate_if_present" class="item"><em>level 1</em> - verify peer certificate if present</a></strong></dt>
+<dt><strong><a name="level_0" class="item">level 0</a></strong></dt>
 
-<dt><strong><a name="level_2_verify_peer_certificate" class="item"><em>level 2</em> - verify peer certificate</a></strong></dt>
+<dd>
+<p>Request and ignore peer certificate.</p>
+</dd>
+<dt><strong><a name="level_1" class="item">level 1</a></strong></dt>
 
-<dt><strong><a name="level_3_verify_peer_with_locally_installed_certificate" class="item"><em>level 3</em> - verify peer with locally installed certificate</a></strong></dt>
+<dd>
+<p>Verify peer certificate if present.</p>
+</dd>
+<dt><strong><a name="level_2" class="item">level 2</a></strong></dt>
 
-<dt><strong><a name="default_no_verify" class="item"><em>default</em> - no verify</a></strong></dt>
+<dd>
+<p>Verify peer certificate.</p>
+</dd>
+<dt><strong><a name="level_3" class="item">level 3</a></strong></dt>
 
+<dd>
+<p>Verify peer with locally installed certificate.</p>
+</dd>
+<dt><strong><a name="level_4" class="item">level 4</a></strong></dt>
+
+<dd>
+<p>Ignore CA chain and only verify peer certificate.</p>
+</dd>
+<dt><strong><a name="default" class="item">default</a></strong></dt>
+
+<dd>
+<p>No verify.</p>
+</dd>
 </dl>
 <p>It is important to understand, that this option was solely designed for access
 control and not for authorization.  Specifically for level 2 every non-revoked
@@ -778,23 +881,20 @@ for webservers.  Level 3 is preferred for point-to-point connections.</p>
 <p>Force a reload of the configuration file.</p>
 <p>Some global options will not be reloaded:</p>
 <ul>
-<li><strong><a name="chroot" class="item">chroot</a></strong>
-
+<li>
+<p>chroot</p>
 </li>
-<li><strong><a name="fips" class="item">fips</a></strong>
-
+<li>
+<p>foreground</p>
 </li>
-<li><strong><a name="foreground" class="item">foreground</a></strong>
-
+<li>
+<p>pid</p>
 </li>
-<li><strong><a name="pid" class="item">pid</a></strong>
-
+<li>
+<p>setgid</p>
 </li>
-<li><strong><a name="setgid" class="item">setgid</a></strong>
-
-</li>
-<li><strong><a name="setuid" class="item">setuid</a></strong>
-
+<li>
+<p>setuid</p>
 </li>
 </ul>
 <p>The use of 'setuid' option will also prevent stunnel from binding privileged
@@ -900,29 +1000,29 @@ should be discarded. So the file should look like this:</p>
 order for SSL to use good randomness.  The following sources are loaded
 in order until sufficient random data has been gathered:</p>
 <ul>
-<li><strong><a name="the_file_specified_with_the_rndfile_flag" class="item">The file specified with the <em>RNDfile</em> flag.</a></strong>
-
+<li>
+<p>The file specified with the <em>RNDfile</em> flag.</p>
 </li>
 <li><strong><a name="the_file_specified_by_the_randfile_environment_variable_if_set" class="item">The file specified by the RANDFILE environment variable, if set.</a></strong>
 
 </li>
-<li><strong><a name="the_file_rnd_in_your_home_directory_if_randfile_not_set" class="item">The file .rnd in your home directory, if RANDFILE not set.</a></strong>
-
+<li>
+<p>The file .rnd in your home directory, if RANDFILE not set.</p>
 </li>
-<li><strong><a name="the_file_specified_with_with_random_at_compile_time" class="item">The file specified with '--with-random' at compile time.</a></strong>
-
+<li>
+<p>The file specified with '--with-random' at compile time.</p>
 </li>
-<li><strong><a name="the_contents_of_the_screen_if_running_on_windows" class="item">The contents of the screen if running on Windows.</a></strong>
-
+<li>
+<p>The contents of the screen if running on Windows.</p>
 </li>
-<li><strong><a name="the_egd_socket_specified_with_the_egd_flag" class="item">The egd socket specified with the <em>EGD</em> flag.</a></strong>
-
+<li>
+<p>The egd socket specified with the <em>EGD</em> flag.</p>
 </li>
-<li><strong><a name="the_egd_socket_specified_with_with_egd_sock_at_compile_time" class="item">The egd socket specified with '--with-egd-sock' at compile time.</a></strong>
-
+<li>
+<p>The egd socket specified with '--with-egd-sock' at compile time.</p>
 </li>
-<li><strong><a name="the_dev_urandom_device" class="item">The /dev/urandom device.</a></strong>
-
+<li>
+<p>The /dev/urandom device.</p>
 </li>
 </ul>
 <p>With recent (&gt;=OpenSSL 0.9.5a) version of SSL it will stop loading
@@ -946,6 +1046,14 @@ at the very bottom of the list above.  This isn't <strong>stunnel's</strong> beh
 OpenSSLs.</p>
 <p>
 </p>
+<h2><a name="dh_parameters">DH PARAMETERS</a></h2>
+<p>Stunnel 4.40 and later contains hardcoded 2048-bit DH parameters.</p>
+<p>It is also possible to specify DH parameters in the certificate file:</p>
+<pre>
+    openssl dhparam 2048 &gt;&gt; stunnel.pem</pre>
+<p>DH parameter generation may take several minutes.</p>
+<p>
+</p>
 <hr />
 <h1><a name="files">FILES</a></h1>
 <dl>
@@ -959,7 +1067,7 @@ OpenSSLs.</p>
 </p>
 <hr />
 <h1><a name="bugs">BUGS</a></h1>
-<p>Option <em>execargs</em> does not support quoting.</p>
+<p>Option <em>execargs</em> and Win32 command line does not support quoting.</p>
 <p>
 </p>
 <hr />
@@ -991,7 +1099,7 @@ OpenSSLs.</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <dl>
-<dt><strong><a name="michal_trojnara" class="item">Michal Trojnara</a></strong></dt>
+<dt><strong><a name="micha_trojnara" class="item">Michał Trojnara</a></strong></dt>
 
 <dd>
 <p>&lt;<em class="file"><a href="mailto:Michal.Trojnara@mirt.net">Michal.Trojnara@mirt.net</a></em>&gt;</p>

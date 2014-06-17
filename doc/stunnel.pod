@@ -1,5 +1,7 @@
 =head1 NAME
 
+=encoding utf8
+
 stunnel - universal SSL tunnel
 
 
@@ -13,7 +15,7 @@ B<stunnel> [<S<filename>>] | S<-fd n> | S<-help> | S<-version> | S<-sockets>
 
 =item B<WIN32:>
 
-B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>]
+B<stunnel> [ [S<-install> | S<-uninstall> | S<-start> | S<-stop>] | S<-exit>]
     [S<-quiet>] [<S<filename>>] ] | S<-help> | S<-version> | S<-sockets>
 
 =back
@@ -76,9 +78,13 @@ Start NT Service
 
 Stop NT Service
 
+=item B<-exit> (Win32 only)
+
+Exit an already started stunnel
+
 =item B<-quiet> (NT/2000/XP only)
 
-Don't display a message box when successfully installed or uninstalled NT service
+Don't display any message boxes
 
 =back
 
@@ -89,13 +95,39 @@ Each line of the configuration file can be either:
 
 =over 4
 
-=item * an empty line (ignored)
+=item *
 
-=item * a comment starting with ';' (ignored)
+An empty line (ignored).
 
-=item * an 'option_name = option_value' pair
+=item *
 
-=item * '[service_name]' indicating a start of a service definition
+A comment starting with ';' (ignored).
+
+=item *
+
+An 'option_name = option_value' pair.
+
+=item *
+
+'[service_name]' indicating a start of a service definition.
+
+=back
+
+An address parameter of an option may be either:
+
+=over 4
+
+=item *
+
+A port number.
+
+=item *
+
+A colon-separated pair of IP address (either IPv4, IPv6, or domain name) and port number.
+
+=item *
+
+A Unix socket path (Unix only).
 
 =back
 
@@ -111,11 +143,31 @@ B<chroot> keeps B<stunnel> in chrooted jail.  I<CApath>, I<CRLpath>, I<pid>
 and I<exec> are located inside the jail and the patches have to be relative
 to the directory specified with B<chroot>.
 
-=item B<compression> = zlib | rle
+Several functions of the operating system also need their files to be located within chroot jail, e.g.:
+
+=over 4
+
+=item *
+
+Delayed resolver typically needs /etc/nsswitch.conf and /etc/resolv.conf.
+
+=item *
+
+Local time in log files needs /etc/timezone.
+
+=item *
+
+Some other functions may need devices, e.g. /dev/zero or /dev/null.
+
+=back
+
+=item B<compression> = deflate | zlib | rle
 
 select data compression algorithm
 
 default: no compression
+
+deflate is the standard compression method as described in RFC 1951.
 
 zlib compression of OpenSSL 0.9.8 or above is not backward compatible with
 OpenSSL 0.9.7.
@@ -192,9 +244,9 @@ default: background in daemon mode
 
 =item B<output> = file
 
-append log messages to a file instead of using syslog
+append log messages to a file
 
-/dev/stdout device can be used to redirect log messages to the standard
+/dev/stdout device can be used to send log messages to the standard
 output (for example to log them with daemontools splogger).
 
 =item B<pid> = file (Unix only)
@@ -227,13 +279,9 @@ overwrite the random seed files with new random data
 
 default: yes
 
-=item B<service> = servicename
+=item B<service> = servicename (Unix only)
 
-use specified string as the service name
-
-B<On Unix:> I<inetd> mode service name for TCP Wrapper library.
-
-B<On NT/2000/XP:> NT service name in the Control Panel.
+use specified string as I<inetd> mode service name for TCP Wrapper library
 
 default: stunnel
 
@@ -293,11 +341,15 @@ below.
 
 =over 4
 
-=item B<accept> = [host:]port
+=item B<accept> = address
 
-accept connections on specified host:port
+accept connections on specified address
 
-If no host specified, defaults to all IP addresses for the local host.
+If no host specified, defaults to all IPv4 addresses for the local host.
+
+To listen on all IPv6 addresses use:
+
+    connect = :::port
 
 =item B<CApath> = directory
 
@@ -342,9 +394,9 @@ client mode (remote service uses SSL)
 
 default: no (server mode)
 
-=item B<connect> = [host:]port
+=item B<connect> = address
 
-connect to a remote host:port
+connect to a remote address
 
 If no host is specified, the host defaults to localhost.
 
@@ -377,7 +429,11 @@ This file contains multiple CRLs, used with the I<verify>.
 
 specify ECDH curve name
 
-default: sect163r2
+To get a list of supported cuves use:
+
+    openssl ecparam -list_curves
+
+default: prime256v1
 
 =item B<delay> = yes | no
 
@@ -441,7 +497,7 @@ default: yes
 IP of the outgoing interface is used as source for remote connections.
 Use this option to bind a static local IP address, instead.
 
-=item B<sni> = service_name:server_name
+=item B<sni> = service_name:server_name (server mode)
 
 Use the service as a slave service (a name-based virtual server) for Server
 Name Indication TLS extension (RFC 3546).
@@ -456,6 +512,15 @@ I<connect> option of the slave service is ignored when I<protocol> option is
 specified, as I<protocol> connects remote host before TLS handshake.
 Libwrap checks (Unix only) are performed twice: with master service name after
 TCP connection is accepted, and with slave service name during TLS handshake.
+
+Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
+
+=item B<sni> = server_name (client mode)
+
+Use the parameter as the value of TLS Server Name Indication (RFC 3546)
+extension.
+
+Option I<sni> is only available when compiled with OpenSSL 1.0.0 and later.
 
 =item B<OCSP> = url
 
@@ -514,17 +579,21 @@ Based on RFC 4642 - I<Using Transport Layer Security (TLS) with Network News Tra
 
 This protocol is only supported in client mode.
 
+=item I<pgsql>
+
+Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
+
 =item I<pop3>
 
 Based on RFC 2449 - I<POP3 Extension Mechanism>
 
+=item I<proxy>
+
+Haproxy client IP address http://haproxy.1wt.eu/download/1.5/doc/proxy-protocol.txt
+
 =item I<smtp>
 
 Based on RFC 2487 - I<SMTP Service Extension for Secure SMTP over TLS>
-
-=item I<pgsql>
-
-Based on http://www.postgresql.org/docs/8.3/static/protocol-flow.html#AEN73982
 
 =back
 
@@ -554,15 +623,52 @@ username for protocol negotiations
 
 allocate pseudo terminal for 'exec' option
 
-=item B<retry> = yes | no (Unix only)
+=item B<renegotiation> = yes | no
+
+support SSL renegotiation
+
+Applications of the SSL renegotiation include some authentication scenarios,
+or re-keying long lasting connections.
+
+On the other hand this feature can facilitate a trivial CPU-exhaustion
+DoS attack:
+
+http://vincent.bernat.im/en/blog/2011-ssl-dos-mitigation.html
+
+Please note that disabling SSL renegotiation does not fully mitigate
+this issue.
+
+default: yes (if supported by OpenSSL)
+
+=item B<reset> = yes | no
+
+attempt to use TCP RST flag to indicate an error
+
+This option is not supported on some platforms.
+
+default: yes
+
+=item B<retry> = yes | no
 
 reconnect a connect+exec section after it's disconnected
 
 default: no
 
-=item B<session> = timeout
+=item B<sessionCacheSize> = size
+
+session cache size
+
+The parameter specifies the maximum number of the internal session cache
+entries.
+
+The value of 0 can be used for unlimited size.  It is not recommended
+for production use due to the risk of memory exhaustion DoS attack.
+
+=item B<sessionCacheTimeout> = timeout
 
 session cache timeout
+
+This is the number of seconds to keep cached SSL sessions.
 
 =item B<sessiond> = host:port
 
@@ -572,7 +678,7 @@ address of sessiond SSL cache server
 
 select version of SSL protocol
 
-Allowed options: all, SSLv2, SSLv3, TLSv1
+Allowed options: all, SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2
 
 =item B<stack> = bytes (except for FORK model)
 
@@ -700,13 +806,29 @@ verify peer certificate
 
 =over 4
 
-=item I<level 1> - verify peer certificate if present
+=item level 0
 
-=item I<level 2> - verify peer certificate
+Request and ignore peer certificate.
 
-=item I<level 3> - verify peer with locally installed certificate
+=item level 1
 
-=item I<default> - no verify
+Verify peer certificate if present.
+
+=item level 2
+
+Verify peer certificate.
+
+=item level 3
+
+Verify peer with locally installed certificate.
+
+=item level 4
+
+Ignore CA chain and only verify peer certificate.
+
+=item default
+
+No verify.
 
 =back
 
@@ -738,17 +860,25 @@ Some global options will not be reloaded:
 
 =over 4
 
-=item * chroot
+=item *
 
-=item * fips
+chroot
 
-=item * foreground
+=item *
 
-=item * pid
+foreground
 
-=item * setgid
+=item *
 
-=item * setuid
+pid
+
+=item *
+
+setgid
+
+=item *
+
+setuid
 
 =back
 
@@ -862,21 +992,36 @@ in order until sufficient random data has been gathered:
 
 =over 4
 
-=item * The file specified with the I<RNDfile> flag.
+=item *
 
-=item * The file specified by the RANDFILE environment variable, if set.
+The file specified with the I<RNDfile> flag.
 
-=item * The file .rnd in your home directory, if RANDFILE not set.
+=item *
+The file specified by the RANDFILE environment variable, if set.
 
-=item * The file specified with '--with-random' at compile time.
+=item *
 
-=item * The contents of the screen if running on Windows.
+The file .rnd in your home directory, if RANDFILE not set.
 
-=item * The egd socket specified with the I<EGD> flag.
+=item *
 
-=item * The egd socket specified with '--with-egd-sock' at compile time.
+The file specified with '--with-random' at compile time.
 
-=item * The /dev/urandom device.
+=item *
+
+The contents of the screen if running on Windows.
+
+=item *
+
+The egd socket specified with the I<EGD> flag.
+
+=item *
+
+The egd socket specified with '--with-egd-sock' at compile time.
+
+=item *
+
+The /dev/urandom device.
 
 =back
 
@@ -903,6 +1048,16 @@ systems with /dev/urandom you're likely to use it even though it's listed
 at the very bottom of the list above.  This isn't B<stunnel's> behaviour, it's
 OpenSSLs.
 
+=head2 DH PARAMETERS
+
+Stunnel 4.40 and later contains hardcoded 2048-bit DH parameters.
+
+It is also possible to specify DH parameters in the certificate file:
+
+    openssl dhparam 2048 >> stunnel.pem
+
+DH parameter generation may take several minutes.
+
 
 =head1 FILES
 
@@ -917,7 +1072,7 @@ B<stunnel> configuration file
 
 =head1 BUGS
 
-Option I<execargs> does not support quoting.
+Option I<execargs> and Win32 command line does not support quoting.
 
 
 =head1 SEE ALSO
@@ -947,7 +1102,7 @@ OpenSSL project website
 
 =over 4
 
-=item Michal Trojnara
+=item Michał Trojnara
 
 <F<Michal.Trojnara@mirt.net>>
 

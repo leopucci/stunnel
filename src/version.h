@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -37,13 +37,32 @@
 
 #ifndef VERSION_MAJOR
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+/* HOST may be undefined on Win32 platform */
+#ifndef HOST
+#ifdef __MINGW32__
+#define HOST "x86-pc-mingw32-gnu"
+#else /* __MINGW32__ */
+#ifdef _MSC_VER
+#define _QUOTEME(x) #x
+#define QUOTEME(x) _QUOTEME(x)
+#define HOST "x86-pc-msvc-" ## QUOTEME(_MSC_VER)
+#else /* _MSC_VER */
+#define HOST "x86-pc-unknown"
+#endif /* _MSC_VER */
+#endif /* __MINGW32__ */
+#endif /* HOST */
+
 /* START CUSTOMIZE */
 #define VERSION_MAJOR 4
-#define VERSION_MINOR 38
+#define VERSION_MINOR 54
 /* END CUSTOMIZE */
 
 /* all the following macros are ABSOLUTELY NECESSARY to have proper string
-   construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
+ * construction with VARIOUS C preprocessors (EVC, VC, BCC, GCC) */
 #define STRINGIZE0(x) #x
 #define STRINGIZE(x) STRINGIZE0(x)
 #define STRZCONCAT30(a,b,c) a##b##c
@@ -53,18 +72,17 @@
 #define STUNNEL_VERSION0 STRZCONCAT3(VERSION_MAJOR, . , VERSION_MINOR)
 #define STUNNEL_VERSION STRINGIZE(STUNNEL_VERSION0)
 
-/* for version.rc */
+/* for resources.rc */
 #define STUNNEL_VERSION_FIELDS VERSION_MAJOR,VERSION_MINOR,0,0
-#define STUNNEL_VERSION_STR STUNNEL_VERSION "\0"
-#define STUNNEL_PRODUCTNAME_STR "stunnel " STUNNEL_VERSION " for " HOST " \0"
+#define STUNNEL_PRODUCTNAME "stunnel " STUNNEL_VERSION " for " HOST
 
 /* some useful tricks for preprocessing debugging */
 #if 0
-#pragma message ( "VERSION.H: STUNNEL_VERSION_STR is " STUNNEL_VERSION_STR )
+#pragma message ( "VERSION.H: STUNNEL_VERSION is " STUNNEL_VERSION )
 #pragma message ( "VERSION.H: HOST is " HOST )
-#pragma message ( "VERSION.H: STUNNEL_PRODUCTNAME_STR is " STUNNEL_PRODUCTNAME_STR )
+#pragma message ( "VERSION.H: STUNNEL_PRODUCTNAME is " STUNNEL_PRODUCTNAME )
 #endif
 
-#endif
+#endif /* VERSION_MAJOR */
 
 /* end of version.h */

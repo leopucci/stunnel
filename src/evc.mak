@@ -1,4 +1,4 @@
-# wce.mak for stunnel.exe by Michal Trojnara 2006-2011
+# wce.mak for stunnel.exe by Michal Trojnara 2006-2012
 # with help of Pierre Delaage <delaage.pierre@free.fr>
 #
 # DEFAULTLIB management: only 2 are necessary
@@ -90,8 +90,7 @@ BIN=$(BINROOT)\$(TARGETCPU)
 OBJS=$(OBJ)\stunnel.obj $(OBJ)\ssl.obj $(OBJ)\ctx.obj $(OBJ)\verify.obj \
 	$(OBJ)\file.obj $(OBJ)\client.obj $(OBJ)\protocol.obj $(OBJ)\sthreads.obj \
 	$(OBJ)\log.obj $(OBJ)\options.obj $(OBJ)\network.obj \
-	$(OBJ)\resolver.obj $(OBJ)\str.obj \
-	$(OBJ)\version.res
+	$(OBJ)\resolver.obj $(OBJ)\str.obj $(OBJ)\fd.obj
 
 GUIOBJS=$(OBJ)\gui.obj $(OBJ)\resources.res
 NOGUIOBJS=$(OBJ)\nogui.obj
@@ -120,7 +119,6 @@ $(BIN)\tstunnel.exe:$(OBJS) $(NOGUIOBJS)
 	link $(LDFLAGS)  /out:$(BIN)\tstunnel.exe $(LIBS) $**
 
 $(OBJ)\resources.res: $(SRC)\resources.rc $(SRC)\resources.h $(SRC)\version.h
-$(OBJ)\version.res: $(SRC)\version.rc $(SRC)\version.h
 $(OBJ)\gui.obj: $(SRC)\gui.c $(SRC)\version.h
 $(OBJ)\stunnel.obj: $(SRC)\stunnel.c $(SRC)\version.h
 

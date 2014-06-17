@@ -1,24 +1,24 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -60,10 +60,6 @@ DISK_FILE *file_open(char *name, int wr) {
 
     /* setup df structure */
     df=str_alloc(sizeof df);
-    if(!df) {
-        CloseHandle(df->fh);
-        return NULL;
-    }
     df->fh=fh;
     return df;
 }
@@ -74,16 +70,9 @@ DISK_FILE *file_fdopen(int fd) {
     DISK_FILE *df;
 
     df=str_alloc(sizeof(DISK_FILE));
-    if(!df)
-        return NULL;
     df->fd=fd;
     return df;
 }
-
-/* try to use non-POSIX O_NDELAY on obsolete BSD systems */
-#if !defined O_NONBLOCK && defined O_NDELAY
-#define O_NONBLOCK O_NDELAY
-#endif
 
 DISK_FILE *file_open(char *name, int wr) {
     DISK_FILE *df;
@@ -94,7 +83,11 @@ DISK_FILE *file_open(char *name, int wr) {
         flags=O_CREAT|O_WRONLY|O_APPEND;
     else
         flags=O_RDONLY;
+#ifdef O_NONBLOCK
     flags|=O_NONBLOCK;
+#elif defined O_NDELAY
+    flags|=O_NDELAY;
+#endif
 #ifdef O_CLOEXEC
     flags|=O_CLOEXEC;
 #endif /* O_CLOEXEC */
@@ -106,10 +99,6 @@ DISK_FILE *file_open(char *name, int wr) {
 
     /* setup df structure */
     df=str_alloc(sizeof df);
-    if(!df) {
-        close(df->fd);
-        return NULL;
-    }
     df->fd=fd;
     return df;
 }
@@ -172,8 +161,6 @@ int file_putline(DISK_FILE *df, char *line) {
 
     len=strlen(line);
     buff=str_alloc(len+2); /* +2 for CR+LF */
-    if(!buff)
-        return 0;
     strcpy(buff, line);
 #ifdef USE_WIN32
     buff[len++]='\r'; /* CR */
@@ -200,16 +187,12 @@ LPTSTR str2tstr(const LPSTR in) {
     if(!len)
         return NULL;
     out=str_alloc((len+1)*sizeof(WCHAR));
-    if(!out)
-        return NULL;
     len=MultiByteToWideChar(CP_ACP, 0, in, -1, out, len);
     if(!len)
         return NULL;
 #else
     len=strlen(in);
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     strcpy(out, in);
 #endif
     return out;
@@ -224,16 +207,12 @@ LPSTR tstr2str(const LPTSTR in) {
     if(!len)
         return NULL;
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     len=WideCharToMultiByte(CP_ACP, 0, in, -1, out, len, NULL, NULL);
     if(!len)
         return NULL;
 #else
     len=strlen(in);
     out=str_alloc(len+1);
-    if(!out)
-        return NULL;
     strcpy(out, in);
 #endif
     return out;

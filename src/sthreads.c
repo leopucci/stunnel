@@ -1,24 +1,24 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2011 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
  *   Free Software Foundation; either version 2 of the License, or (at your
  *   option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *   See the GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License along
  *   with this program; if not, see <http://www.gnu.org/licenses>.
- * 
+ *
  *   Linking stunnel statically or dynamically with other modules is making
  *   a combined work based on stunnel. Thus, the terms and conditions of
  *   the GNU General Public License cover the whole combination.
- * 
+ *
  *   In addition, as a special exception, the copyright holder of stunnel
  *   gives you permission to combine stunnel with free software programs or
  *   libraries that are released under the GNU LGPL and with code included
@@ -26,7 +26,7 @@
  *   modified versions of such code, with unchanged license). You may copy
  *   and distribute such a system following the terms of the GNU GPL for
  *   stunnel and the licenses of the other code concerned.
- * 
+ *
  *   Note that people who make modified versions of stunnel are not obligated
  *   to grant this special exception for their modified versions; it is their
  *   choice whether to do so. The GNU General Public License gives permission
@@ -92,11 +92,8 @@ static CONTEXT *new_context(void) {
     CONTEXT *context;
 
     /* allocate and fill the CONTEXT structure */
-    context=calloc(1, sizeof(CONTEXT));
-    if(!context) {
-        s_log(LOG_ERR, "Unable to allocate CONTEXT structure");
-        return NULL;
-    }
+    context=str_alloc(sizeof(CONTEXT));
+    str_detach(context);
     context->id=next_id++;
     context->fds=NULL;
     context->ready=0;
@@ -112,26 +109,27 @@ static CONTEXT *new_context(void) {
     return context;
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     /* create the first (listening) context and put it in the running queue */
     if(!new_context()) {
         s_log(LOG_ERR, "Unable create the listening context");
-        die(1);
+        return 1;
     }
     /* no need to initialize ucontext_t structure here
        it will be initialied with swapcontext() call */
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     CONTEXT *context;
 
     (void)ls; /* this parameter is only used with USE_FORK */
-    
+
     s_log(LOG_DEBUG, "Creating a new context");
     context=new_context();
     if(!context) {
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -139,9 +137,9 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
     /* initialize context_t structure */
     if(getcontext(&context->context)<0) {
-        free(context);
+        str_free(context);
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         ioerror("getcontext");
@@ -150,16 +148,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_link=NULL; /* stunnel does not use uc_link */
 
     /* create stack */
-    context->stack=calloc(1, arg->opt->stack_size);
-    if(!context->stack) {
-        free(context);
-        if(arg)
-            free(arg);
-        if(s>=0)
-            closesocket(s);
-        s_log(LOG_ERR, "Unable to allocate stack");
-        return -1;
-    }
+    context->stack=str_alloc(arg->opt->stack_size);
+    str_detach(context->stack);
 #if defined(__sgi) || ARGC==2 /* obsolete ss_sp semantics */
     context->context.uc_stack.ss_sp=context->stack+arg->opt->stack_size-8;
 #else
@@ -168,8 +158,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     context->context.uc_stack.ss_size=arg->opt->stack_size;
     context->context.uc_stack.ss_flags=0;
 
-    s_log(LOG_DEBUG, "Context %ld created", context->id);
     makecontext(&context->context, (void(*)(void))cli, ARGC, arg);
+    s_log(LOG_DEBUG, "New context created");
     return 0;
 }
 
@@ -177,8 +167,8 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
 
 #ifdef USE_FORK
 
-void sthreads_init(void) {
-    /* empty */
+int sthreads_init(void) {
+    return 0;
 }
 
 unsigned long stunnel_process_id(void) {
@@ -190,6 +180,7 @@ unsigned long stunnel_thread_id(void) {
 }
 
 static void null_handler(int sig) {
+    (void)sig; /* skip warning about unused parameter */
     signal(SIGCHLD, null_handler);
 }
 
@@ -197,7 +188,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     switch(fork()) {
     case -1:    /* error */
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -209,7 +200,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
         _exit(0);
     default:    /* parent */
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
     }
@@ -231,11 +222,7 @@ void leave_critical_section(SECTION_CODE i) {
     pthread_mutex_unlock(stunnel_cs+i);
 }
 
-static void locking_callback(int mode, int type,
-#ifdef HAVE_OPENSSL
-    const /* callback definition has been changed in openssl 0.9.3 */
-#endif
-    char *file, int line) {
+static void locking_callback(int mode, int type, const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
@@ -254,10 +241,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    /* there is no guarantee free() is called from the same thread */
-    value=malloc(sizeof(struct CRYPTO_dynlock_value));
-    if(!value)
-        return NULL;
+    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
+    str_detach(value);
     pthread_mutex_init(&value->mutex, NULL);
     return value;
 }
@@ -277,8 +262,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     pthread_mutex_destroy(&value->mutex);
-    /* there is no guarantee malloc() is called from the same thread */
-    free(value);
+    str_free(value);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -289,7 +273,7 @@ unsigned long stunnel_thread_id(void) {
     return (unsigned long)pthread_self();
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     int i;
 
     /* initialize stunnel critical sections */
@@ -306,6 +290,8 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
@@ -340,7 +326,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
         errno=error;
         ioerror("pthread_create");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -363,11 +349,7 @@ void leave_critical_section(SECTION_CODE i) {
     LeaveCriticalSection(stunnel_cs+i);
 }
 
-static void locking_callback(int mode, int type,
-#ifdef HAVE_OPENSSL
-    const /* callback definition has been changed in openssl 0.9.3 */
-#endif
-    char *file, int line) {
+static void locking_callback(int mode, int type, const char *file, int line) {
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     if(mode&CRYPTO_LOCK)
@@ -386,10 +368,8 @@ static struct CRYPTO_dynlock_value *dyn_create_function(const char *file,
 
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
-    /* there is no guarantee free() is called from the same thread */
-    value=malloc(sizeof(struct CRYPTO_dynlock_value));
-    if(!value)
-        return NULL;
+    value=str_alloc(sizeof(struct CRYPTO_dynlock_value));
+    str_detach(value);
     InitializeCriticalSection(&value->mutex);
     return value;
 }
@@ -409,8 +389,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *value,
     (void)file; /* skip warning about unused parameter */
     (void)line; /* skip warning about unused parameter */
     DeleteCriticalSection(&value->mutex);
-    /* there is no guarantee malloc() is called from the same thread */
-    free(value);
+    str_free(value);
 }
 
 unsigned long stunnel_process_id(void) {
@@ -421,7 +400,7 @@ unsigned long stunnel_thread_id(void) {
     return GetCurrentThreadId() & 0x00ffffff;
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
     int i;
 
     /* initialize stunnel critical sections */
@@ -437,6 +416,8 @@ void sthreads_init(void) {
     CRYPTO_set_dynlock_create_callback(dyn_create_function);
     CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
     CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+    return 0;
 }
 
 int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
@@ -445,7 +426,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     if((long)_beginthread((void(*)(void *))cli, arg->opt->stack_size, arg)==-1) {
         ioerror("_beginthread");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
@@ -466,7 +447,8 @@ void leave_critical_section(SECTION_CODE i) {
     DosExitCritSec();
 }
 
-void sthreads_init(void) {
+int sthreads_init(void) {
+    return 0;
 }
 
 unsigned long stunnel_process_id(void) {
@@ -487,7 +469,7 @@ int create_client(int ls, int s, CLI *arg, void *(*cli)(void *)) {
     if((long)_beginthread((void(*)(void *))cli, NULL, arg->opt->stack_size, arg)==-1L) {
         ioerror("_beginthread");
         if(arg)
-            free(arg);
+            str_free(arg);
         if(s>=0)
             closesocket(s);
         return -1;
