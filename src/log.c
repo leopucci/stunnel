@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -38,7 +38,7 @@
 #include "common.h"
 #include "prototypes.h"
 
-static void log_raw(const int, const char *, const char *, const char *);
+NOEXPORT void log_raw(const int, const char *, const char *, const char *);
 
 static DISK_FILE *outfile=NULL;
 static struct LIST { /* single-linked list of log lines */
@@ -73,14 +73,31 @@ void syslog_close(void) {
 
 #endif /* !defined(USE_WIN32) && !defined(__vms) */
 
-void log_open(void) {
+int log_open(void) {
     if(global_options.output_file) { /* 'output' option specified */
-        outfile=file_open(global_options.output_file, 1);
-        if(!outfile)
-            s_log(LOG_ERR, "Unable to open output file: %s",
+        outfile=file_open(global_options.output_file,
+            global_options.log_file_mode);
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+        if(!outfile) {
+            char appdata[MAX_PATH], *path;
+            if(SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA|CSIDL_FLAG_CREATE,
+                    NULL, 0, appdata)==S_OK) {
+                path=str_printf("%s\\%s", appdata, global_options.output_file);
+                outfile=file_open(path, global_options.log_file_mode);
+                if(outfile)
+                    s_log(LOG_NOTICE, "Logging to %s", path);
+                str_free(path);
+            }
+        }
+#endif
+        if(!outfile) {
+            s_log(LOG_ERR, "Cannot open log file: %s",
                 global_options.output_file);
+            return 1;
+        }
     }
     log_flush(LOG_MODE_CONFIGURED);
+    return 0;
 }
 
 void log_close(void) {
@@ -116,6 +133,7 @@ void log_flush(LOG_MODE new_mode) {
 void s_log(int level, const char *format, ...) {
     va_list ap;
     char *text, *stamp, *id;
+    unsigned long tid;
     struct LIST *tmp;
     int libc_error, socket_error;
     time_t gmt;
@@ -140,8 +158,10 @@ void s_log(int level, const char *format, ...) {
     stamp=str_printf("%04d.%02d.%02d %02d:%02d:%02d",
         timeptr->tm_year+1900, timeptr->tm_mon+1, timeptr->tm_mday,
         timeptr->tm_hour, timeptr->tm_min, timeptr->tm_sec);
-    id=str_printf("LOG%d[%lu:%lu]",
-        level, stunnel_process_id(), stunnel_thread_id());
+    tid=stunnel_thread_id();
+    if(!tid) /* currently USE_FORK */
+        tid=stunnel_process_id();
+    id=str_printf("LOG%d[%lu]", level, tid);
     va_start(ap, format);
     text=str_vprintf(format, ap);
     va_end(ap);
@@ -175,7 +195,7 @@ void s_log(int level, const char *format, ...) {
     set_last_socket_error(socket_error);
 }
 
-static void log_raw(const int level, const char *stamp,
+NOEXPORT void log_raw(const int level, const char *stamp,
         const char *id, const char *text) {
     char *line;
 
@@ -190,30 +210,25 @@ static void log_raw(const int level, const char *stamp,
             if(outfile)
                 file_putline(outfile, line); /* send log to file */
         }
-    } else /* LOG_MODE_ERROR or LOG_MODE_INFO */
+    } else if(mode==LOG_MODE_ERROR) {
+        if(level>=0 || level<=7) /* just in case */
+            line=str_printf("[%c] %s", "***!:.  "[level], text);
+        else
+            line=str_printf("[?] %s", text);
+    } else /* LOG_MODE_INFO */
         line=str_dup(text); /* don't log the time stamp in error mode */
 
-    /* log the line to GUI/stderr */
-#ifdef USE_WIN32
-    if(mode==LOG_MODE_ERROR || /* always log to the GUI window */
+    /* log the line to the UI (GUI, stderr, etc.) */
+    if(mode==LOG_MODE_ERROR ||
             (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
-            level<=global_options.debug_level)
-        SendMessage(hwnd, WM_LOG, (WPARAM)line, 0);
-#if 0
-    /* logging to Windows console for nogui.c */
-    LPTSTR tstr;
-
-    tstr=str2tstr(line);
-    RETAILMSG(TRUE, (TEXT("%s\r\n"), tstr));
-    str_free(tstr);
-#endif
-#else /* Unix */
-    if(mode==LOG_MODE_ERROR || /* always log LOG_MODE_ERROR to stderr */
-            (mode==LOG_MODE_INFO && level<LOG_DEBUG) ||
+#if defined(USE_WIN32) || defined(USE_JNI)
+            level<=global_options.debug_level
+#else
             (level<=global_options.debug_level &&
-            global_options.option.foreground))
-        fprintf(stderr, "%s\n", line); /* send log to stderr */
+            global_options.option.foreground)
 #endif
+            )
+        ui_new_log(line);
 
     str_free(line);
 }
@@ -233,13 +248,15 @@ void fatal_debug(char *error, char *file, int line) {
         WriteFile(outfile->fh, text, strlen(text), &num, NULL);
 #else /* USE_WIN32 */
         /* no file -> write to stderr */
-        write(outfile ? outfile->fd : 2, text, strlen(text));
+        (void)write(outfile ? outfile->fd : 2, text, strlen(text));
 #endif /* USE_WIN32 */
     }
 
 #ifndef USE_WIN32
-    if(mode!=LOG_MODE_CONFIGURED || global_options.option.foreground)
+    if(mode!=LOG_MODE_CONFIGURED || global_options.option.foreground) {
         fputs(text, stderr);
+        fflush(stderr);
+    }
 #endif /* !USE_WIN32 */
 
     snprintf(text, sizeof text, /* without newline */
@@ -251,12 +268,7 @@ void fatal_debug(char *error, char *file, int line) {
 #endif /* USE_WIN32, __vms */
 
 #ifdef USE_WIN32
-#ifdef _WIN32_WCE
-    MessageBox(hwnd, TEXT("INTERNAL ERROR"),
-        TEXT("stunnel"), MB_ICONERROR);
-#else /* _WIN32_WCE */
-    MessageBox(hwnd, text, "stunnel", MB_ICONERROR);
-#endif /* _WIN32_WCE */
+    message_box(text, MB_ICONERROR);
 #endif /* USE_WIN32 */
 
     abort();

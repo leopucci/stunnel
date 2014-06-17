@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -40,8 +40,8 @@
 
 /**************************************** prototypes */
 
-static int name2addrlist(SOCKADDR_LIST *, char *, char *);
-static int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
+NOEXPORT int name2addrlist(SOCKADDR_LIST *, char *, char *);
+NOEXPORT int hostport2addrlist(SOCKADDR_LIST *, char *, char *);
 
 #ifndef HAVE_GETADDRINFO
 
@@ -72,13 +72,49 @@ struct addrinfo {
 };
 #endif
 
-static int getaddrinfo(const char *, const char *,
+NOEXPORT int getaddrinfo(const char *, const char *,
     const struct addrinfo *, struct addrinfo **);
-static int alloc_addresses(struct hostent *, const struct addrinfo *,
+NOEXPORT int alloc_addresses(struct hostent *, const struct addrinfo *,
     u_short port, struct addrinfo **, struct addrinfo **);
-static void freeaddrinfo(struct addrinfo *);
+NOEXPORT void freeaddrinfo(struct addrinfo *);
 
 #endif /* !defined HAVE_GETADDRINFO */
+
+/**************************************** resolver initialization */
+
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+GETADDRINFO s_getaddrinfo;
+FREEADDRINFO s_freeaddrinfo;
+GETNAMEINFO s_getnameinfo;
+#endif
+
+void resolver_init() {
+#if defined(USE_WIN32) && !defined(_WIN32_WCE)
+    HINSTANCE handle;
+
+    handle=LoadLibrary("ws2_32.dll"); /* IPv6 in Windows XP or higher */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return; /* IPv6 detected -> OK */
+        FreeLibrary(handle);
+    }
+    handle=LoadLibrary("wship6.dll"); /* experimental IPv6 for Windows 2000 */
+    if(handle) {
+        s_getaddrinfo=(GETADDRINFO)GetProcAddress(handle, "getaddrinfo");
+        s_freeaddrinfo=(FREEADDRINFO)GetProcAddress(handle, "freeaddrinfo");
+        s_getnameinfo=(GETNAMEINFO)GetProcAddress(handle, "getnameinfo");
+        if(s_getaddrinfo && s_freeaddrinfo && s_getnameinfo)
+            return; /* IPv6 detected -> OK */
+        FreeLibrary(handle);
+    }
+    s_getaddrinfo=NULL;
+    s_freeaddrinfo=NULL;
+    s_getnameinfo=NULL;
+#endif
+}
 
 /**************************************** stunnel resolver API */
 
@@ -118,11 +154,14 @@ int namelist2addrlist(SOCKADDR_LIST *addr_list, NAME_LIST *name_list, char *defa
         name2addrlist(addr_list, name_list->name, default_host);
 }
 
-static int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
+NOEXPORT int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_host) {
     char *tmp, *hostname, *portname;
     int retval;
 
-    addr_list->cur=0; /* reset round-robin counter */
+    addr_list->rr_val=0; /* reset round-robin counter */
+    /* allow structures created with sockaddr_dup() to modify
+     * the original rr_val rather than its local copy */
+    addr_list->rr_ptr=&addr_list->rr_val;
 
     /* first check if this is a UNIX socket */
 #ifdef HAVE_STRUCT_SOCKADDR_UN
@@ -157,7 +196,7 @@ static int name2addrlist(SOCKADDR_LIST *addr_list, char *name, char *default_hos
     return retval;
 }
 
-static int hostport2addrlist(SOCKADDR_LIST *addr_list,
+NOEXPORT int hostport2addrlist(SOCKADDR_LIST *addr_list,
         char *hostname, char *portname) {
     struct addrinfo hints, *res=NULL, *cur;
     int err, retries=0;
@@ -207,6 +246,14 @@ static int hostport2addrlist(SOCKADDR_LIST *addr_list,
     return addr_list->num; /* ok - return the number of addresses */
 }
 
+void addrlist_dup(SOCKADDR_LIST *dst, const SOCKADDR_LIST *src) {
+    memcpy(dst, src, sizeof(SOCKADDR_LIST));
+    if(src->addr) {
+        dst->addr=str_alloc(src->num*sizeof(SOCKADDR_UNION));
+        memcpy(dst->addr, src->addr, src->num*sizeof(SOCKADDR_UNION));
+    }
+}
+
 char *s_ntop(SOCKADDR_UNION *addr, socklen_t addrlen) {
     int err;
     char *host, *port, *retval;
@@ -247,7 +294,7 @@ socklen_t addr_len(const SOCKADDR_UNION *addr) {
 /* implementation is limited to functionality needed by stunnel */
 
 #ifndef HAVE_GETADDRINFO
-static int getaddrinfo(const char *node, const char *service,
+NOEXPORT int getaddrinfo(const char *node, const char *service,
         const struct addrinfo *hints, struct addrinfo **res) {
     struct hostent *h;
 #ifndef _WIN32_WCE
@@ -333,7 +380,7 @@ static int getaddrinfo(const char *node, const char *service,
     return retval;
 }
 
-static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
+NOEXPORT int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
         u_short port, struct addrinfo **head, struct addrinfo **tail) {
     int i;
     struct addrinfo *ai;
@@ -373,7 +420,7 @@ static int alloc_addresses(struct hostent *h, const struct addrinfo *hints,
     return 0; /* success */
 }
 
-static void freeaddrinfo(struct addrinfo *current) {
+NOEXPORT void freeaddrinfo(struct addrinfo *current) {
     struct addrinfo *next;
 
 #if defined(USE_WIN32) && !defined(_WIN32_WCE)

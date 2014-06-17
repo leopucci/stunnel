@@ -1,6 +1,6 @@
 /*
  *   stunnel       Universal SSL tunnel
- *   Copyright (C) 1998-2012 Michal Trojnara <Michal.Trojnara@mirt.net>
+ *   Copyright (C) 1998-2014 Michal Trojnara <Michal.Trojnara@mirt.net>
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the
@@ -49,7 +49,7 @@
 #define DEFAULT_STACK_SIZE 65536
 /* #define DEBUG_STACK_SIZE */
 
-/* I/O buffer size - 18432 is the maximum size of SSL record payload */
+/* I/O buffer size: 18432 (0x4800) is the maximum size of SSL record payload */
 #define BUFFSIZE 18432
 
 /* how many bytes of random input to read from files for PRNG */
@@ -61,6 +61,13 @@
 
 /* additional diagnostic messages */
 /* #define DEBUG_FD_ALLOC */
+
+#define DEBUG_INFO
+#ifdef DEBUG_INFO
+#define NOEXPORT
+#else
+#define NOEXPORT static
+#endif
 
 /**************************************** platform */
 
@@ -205,7 +212,6 @@ typedef unsigned long u32;
 #define readsocket(s,b,n)           recv((s),(b),(n),0)
 #define writesocket(s,b,n)          send((s),(b),(n),0)
 
-/* #define FD_SETSIZE 4096 */
 /* #define Win32_Winsock */
 #define __USE_W32_SOCKETS
 
@@ -216,6 +222,7 @@ typedef unsigned long u32;
 #include <windows.h>
 
 #include <process.h>     /* _beginthread */
+#include <shfolder.h>    /* SHGetFolderPath */
 #include <tchar.h>
 
 #include "resources.h"
@@ -268,7 +275,6 @@ typedef unsigned long u32;
     /* OpenVMS compatibility */
 #ifdef __vms
 #define LIBDIR "__NA__"
-#define PIDFILE "SYS$LOGIN:STUNNEL.PID"
 #ifdef __alpha
 #define HOST "alpha-openvms"
 #else
@@ -383,6 +389,9 @@ extern char *sys_errlist[];
 #include <linux/netfilter_ipv4.h>
 #endif /* HAVE_LINUX_NETFILTER_IPV4_H */
 #endif /* __linux__ */
+#ifdef HAVE_SYS_SYSCALL_H
+#include <sys/syscall.h> /* SYS_gettid */
+#endif
 
 #endif /* USE_WIN32 */
 
@@ -431,10 +440,10 @@ extern char *sys_errlist[];
 #include <openssl/ocsp.h>
 #endif /* HAVE_OSSL_OCSP_H */
 
-#ifdef USE_FIPS
+#ifdef HAVE_OSSL_FIPS_H
 #include <openssl/fips.h>
 #include <openssl/fips_rand.h>
-#endif /* USE_FIPS */
+#endif /* HAVE_OSSL_FIPS_H */
 
 #if OPENSSL_VERSION_NUMBER<0x0090800fL
 #define OPENSSL_NO_ECDH

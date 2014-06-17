@@ -1,5 +1,129 @@
 stunnel change log
 
+Version 5.02, 2014.06.09, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.1h.
+    See http://www.openssl.org/news/secadv_20140605.txt
+* New features
+  - Major rewrite of the protocol.c interface: it is now possible to add
+    protocol negotiations at multiple connection phases, protocols can
+    individually decide whether the remote connection will be established
+    before or after SSL/TLS is negotiated.
+  - Heap memory blocks are wiped before release.  This only works for
+    block allocated by stunnel, and not by OpenSSL or other libraries.
+  - A safe_memcmp() implemented with execution time not dependent on
+    the compared data.
+  - Updated the stunnel.conf and stunnel.init templates.
+  - Added a client-mode example to the manual.
+* Bugfixes
+  - Fixed "failover = rr" broken since version 5.00.
+  - Fixed "taskbar = no" broken since version 5.00.
+  - Compilation fix for missing SSL_OP_MSIE_SSLV2_RSA_PADDING option.
+
+Version 5.01, 2014.04.08, urgency: HIGH:
+* Security bugfixes
+  - OpenSSL DLLs updated to version 1.0.1g.
+    This version mitigates TLS heartbeat read overrun (CVE-2014-0160).
+* New features
+  - X.509 extensions added to the created self-signed stunnel.pem.
+  - "FIPS = no" also allowed in non-FIPS builds of stunnel.
+  - Search all certificates with the same subject name for a matching
+    public key rather than only the first one (thx to Leon Winter).
+  - Create logs in the local application data folder if stunnel folder
+    is not writable on Win32.
+* Bugfixes
+  - close_notify not sent when SSL still has some data buffered.
+  - Protocol negotiation with server-side SNI fixed.
+  - A Mac OS X missing symbols fixed.
+  - Win32 configuration file reload crash fixed.
+  - Added s_pool_free() on exec+connect service retires.
+  - Line-buffering enforced on stderr output.
+
+stunnel 5.00 disables some features previously enabled by default.
+Users should review whether the new defaults are appropriate for their
+particular deployments.  Packages maintainers may consider prepending
+the old defaults for "fips" (if supported by their OpenSSL library),
+"pid" and "libwrap" to stunnel.conf during automated updates.
+
+Version 5.00, 2014.03.06, urgency: HIGH:
+* Security bugfixes
+  - Added PRNG state update in fork threading (CVE-2014-0016).
+* New global configuration file defaults
+  - Default "fips" option value is now "no", as FIPS mode is only
+    helpful for compliance, and never for actual security.
+  - Default "pid" is now "", i.e. not to create a pid file at startup.
+* New service-level configuration file defaults
+  - Default "ciphers" updated to "HIGH:MEDIUM:+3DES:+DH:!aNULL:!SSLv2"
+    due to AlFBPPS attack and bad performance of DH ciphersuites.
+  - Default "libwrap" setting is now "no" to improve performance.
+* New features
+  - OpenSSL DLLs updated to version 1.0.1f.
+  - zlib DLL updated to version 1.2.8.
+  - autoconf scripts upgraded to version 2.69.
+  - TLS 1.1 and TLS 1.2 are now allowed in the FIPS mode.
+  - New service-level option "redirect" to redirect SSL client
+    connections on authentication failures instead of rejecting them.
+  - New global "engineDefault" configuration file option to control
+    which OpenSSL tasks are delegated to the current engine.
+    Available tasks: ALL, RSA, DSA, ECDH, ECDSA, DH, RAND, CIPHERS,
+    DIGESTS, PKEY, PKEY_CRYPTO, PKEY_ASN1.
+  - New service-level configuration file option "engineId" to select
+    the engine by identifier, e.g. "engineId = capi".
+  - New global configuration file option "log" to control whether to
+    append (the default), or to overwrite log file while (re)opening.
+  - Different taskbar icon colors to indicate the service state.
+  - New global configuration file options "iconIdle", "iconActive",
+    and "iconError" to select status icon on GUI taskbar.
+  - Removed the limit of 63 stunnel.conf sections on Win32 platform.
+  - Installation of a sample certificate was moved to a separate "cert"
+    target in order to allow unattended (e.g. scripted) installations.
+  - Reduced length of the logged thread identifier.  It is still based
+    on the OS thread ID, and thus not unique over long periods of time.
+  - Improved readability of error messages printed when stunnel refuses
+    to start due to a critical error.
+* Bugfixes
+  - LD_PRELOAD Solaris compatibility bug fixed (thx to Norm Jacobs).
+  - CRYPTO_NUM_LOCKS replaced with CRYPTO_num_locks() to improve binary
+    compatibility with diverse builds of OpenSSL (thx to Norm Jacobs).
+  - Corrected round-robin failover behavior under heavy load.
+  - Numerous fixes in the engine support code.
+  - On Win32 platform .rnd file moved from c:\ to the stunnel folder.
+
+Version 4.56, 2013.03.22, urgency: HIGH:
+* New features
+  - Win32 installer automatically configures firewall exceptions.
+  - Win32 installer configures administrative shortcuts to invoke UAC.
+  - Improved Win32 GUI shutdown time.
+* Bugfixes
+  - Fixed a regression bug introduced in version 4.55 causing random
+    crashes on several platforms, including Windows 7.
+  - Fixed startup crashes on some Win32 systems.
+  - Fixed incorrect "stunnel -exit" process synchronisation.
+  - Fixed FIPS detection with new versions of the OpenSSL library.
+  - Failure to open the log file at startup is no longer ignored.
+
+Version 4.55, 2013.03.03, urgency: HIGH:
+* Security bugfixes
+  - Buffer overflow vulnerability fixed in the NTLM authentication
+    of the CONNECT protocol negotiation.
+    See https://www.stunnel.org/CVE-2013-1762.html for details.
+  - OpenSSL updated to version 1.0.1e in Win32/Android builds.
+* New features
+  - SNI wildcard matching in server mode.
+  - Terminal version of stunnel (tstunnel.exe) build for Win32.
+* Bugfixes
+  - Fixed write half-close handling in the transfer() function (thx to
+    Dustin Lundquist).
+  - Fixed EAGAIN error handling in the transfer() function (thx to Jan Bee).
+  - Restored default signal handlers before execvp() (thx to Michael Weiser).
+  - Fixed memory leaks in protocol negotiation (thx to Arthur Mesh).
+  - Fixed a file descriptor leak during configuration file reload (thx to
+    Arthur Mesh).
+  - Closed SSL sockets were removed from the transfer() c->fds poll.
+  - Minor fix in handling exotic inetd-mode configurations.
+  - WCE compilation fixes.
+  - IPv6 compilation fix in protocol.c.
+  - Windows installer fixes.
 
 Version 4.54, 2012.10.09, urgency: MEDIUM:
 * New Win32 features
@@ -27,7 +151,7 @@ Version 4.54, 2012.10.09, urgency: MEDIUM:
     to Andrew Skalski).
   - Session cache purged at configuration file reload to reduce memory leak.
     Remaining leak of a few kilobytes per section is yet to be fixed.
-  - Fixed regression bug in "transparent = destination" functionality (thx
+  - Fixed a regression bug in "transparent = destination" functionality (thx
     to Stefan Lauterbach). This bug was introduced in stunnel 4.51.
   - "transparent = destination" is now a valid endpoint in inetd mode.
   - "delay = yes" fixed to work even if specified *after* "connect" option.
@@ -76,6 +200,7 @@ Version 4.51, 2012.01.09, urgency: MEDIUM:
   - New "compression = deflate" global option to enable RFC 2246 compresion.
     For compatibility with previous versions "compression = zlib" and
     "compression = rle" also enable the deflate (RFC 2246) compression.
+  - Compression is disabled by default.
   - Separate default ciphers and sslVersion for "fips = yes" and "fips = no".
   - UAC support for editing configuration file with Windows GUI.
 * Bugfixes
@@ -128,14 +253,14 @@ Version 4.46, 2011.11.04, urgency: LOW:
   - Added "verify = 4" mode to ignore CA chain and only verify peer certificate.
   - Removed the limit of 16 IP addresses for a single 'connect' option.
   - Removed the limit of 256 stunnel.conf sections in PTHREAD threading model.
-    It is still not possible have more than 63 sections on WIN32 platform.
+    It is still not possible have more than 63 sections on Win32 platform.
     http://msdn.microsoft.com/en-us/library/windows/desktop/ms740141(v=vs.85).aspx
 * Optimizations
   - Reduced per-connection memory usage.
   - Performed a major refactoring of internal data structures.  Extensive
     internal testing was performed, but some regression bugs are expected.
 * Bugfixes
-  - Fixed WIN32 compilation with Mingw32.
+  - Fixed Win32 compilation with Mingw32.
   - Fixed non-blocking API emulation layer in UCONTEXT threading model.
   - Fixed signal handling in UCONTEXT threading model.
 
@@ -180,7 +305,7 @@ Version 4.43, 2011.09.07, urgency: MEDIUM:
   - Major optimization of the logging subsystem.
     Benchmarks indicate up to 15% stunnel performance improvement.
 * Bugfixes
-  - Fixed WIN32 configuration file reload.
+  - Fixed Win32 configuration file reload.
   - Fixed FORK and UCONTEXT threading models.
   - Corrected INSTALL.W32 file.
 
@@ -314,14 +439,14 @@ Version 4.34, 2010.09.19, urgency: LOW:
 * Bugfixes
   - Implemented fixes in user interface to enter engine PIN.
   - Fixed a transfer() loop issue on socket errors.
-  - Fixed missing WIN32 taskbar icon while displaying a global option error.
+  - Fixed missing Win32 taskbar icon while displaying a global option error.
 
 Version 4.33, 2010.04.05, urgency: MEDIUM:
 * New features
   - Win32 DLLs for OpenSSL 1.0.0.
     This library requires to c_rehash CApath/CRLpath directories on upgrade.
   - Win32 DLLs for zlib 1.2.4.
-  - Experimental support for local mode on WIN32 platform.
+  - Experimental support for local mode on Win32 platform.
     Try "exec = c:\windows\system32\cmd.exe".
 * Bugfixes
   - Inetd mode fixed.
@@ -534,7 +659,7 @@ Version 4.16, 2006.08.31, urgency: MEDIUM:
   - Default group is now detected by configure script.
   - Check for maximum number of defined services added.
   - OpenSSL_add_all_algorithms() added to SSL initialization.
-  - configure script sections reordered to detect pthread library funcions.
+  - configure script sections reordered to detect pthread library functions.
   - RFC 2487 autodetection improved.  High resolution s_poll_wait()
     not currently supported by UCONTEXT threading.
   - More precise description of cert directory file names (thx to Muhammad
