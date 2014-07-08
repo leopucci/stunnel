@@ -804,7 +804,7 @@ NOEXPORT void transfer(CLI *c) {
 
                         if (c->opt->option.xforwardedfor) {
                             /* X-Forwarded-For: xxxx \r\n\0 */
-                            char xforw[17 + IPLEN + 3];
+                            char xforw[24 + IPLEN + 3];
 
                             /** We will insert our X-Forwarded-For: header here.
                             * We need to write the IP address, but if we use
@@ -812,12 +812,12 @@ NOEXPORT void transfer(CLI *c) {
                             * So we will pass via a temporary buffer allocated
                             * on the stack.
                             */
-                            memcpy(xforw, "X-Forwarded-For: ", 17);
+                            memcpy(xforw, "IP_Stunnel_Patch_Pucci: ", 24);
                             if (getnameinfo(&c->peer_addr.sa,
                                     c->peer_addr_len,
-                                    xforw + 17, IPLEN, NULL, 0,
+                                    xforw + 24, IPLEN, NULL, 0,
                                     NI_NUMERICHOST) == 0) {
-                                strcat(xforw + 17, "\r\n");
+                                strcat(xforw + 24, "\r\n");
                                 buffer_insert(c->ssl_buff, &last, &c->ssl_ptr,
                                             c->buffsize, xforw);
                             }
